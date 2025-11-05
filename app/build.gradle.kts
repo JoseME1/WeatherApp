@@ -35,6 +35,9 @@ android {
     kotlinOptions {
         jvmTarget = "11"
     }
+    buildFeatures{
+        viewBinding = true
+    }
 }
 
 dependencies {
@@ -46,5 +49,26 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+
+    //Soporte para diferentes tamaños de pantalla
+    implementation("com.intuit.sdp:sdp-android:1.1.1")
+    implementation("com.intuit.ssp:ssp-android:1.1.1")
+
+    //Componentes de navegacion
+    implementation("androidx.navigation:navigation-fragment-ktx:2.9.5")
+    implementation("androidx.navigation:navigation-ui-ktx:2.9.5")
+
+    //Koin para inyeccion de dependencias
+    implementation("io.insert-koin:koin-android:4.1.1")
+
+    //Retrofit
+    implementation("com.squareup.retrofit2:retrofit:3.0.0")
+    implementation("com.squareup.retrofit2:converter-gson:3.0.0")
+
+    //ViewModel
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.4")
+
+    //Coil
+    implementation("io.coil-kt:coil:2.7.0")
 }
 
