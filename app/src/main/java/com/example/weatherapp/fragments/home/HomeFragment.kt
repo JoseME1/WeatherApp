@@ -1,27 +1,53 @@
 package com.example.weatherapp.fragments.home
 
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.example.weatherapp.data.CurrentLocation
 import com.example.weatherapp.data.WeatherData
 import com.example.weatherapp.databinding.FragmentHomeBinding
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import android.Manifest
+import android.app.AlertDialog
+import android.location.Geocoder
+import com.google.android.gms.location.LocationServices
+import org.koin.androidx.viewmodel.ext.android.viewModel
+import kotlin.text.get
 
 class HomeFragment : Fragment(){
     private var _binding: FragmentHomeBinding? = null
     private val binding get()= requireNotNull(_binding)
 
+    private val homeViewModel: HomeViewModel by viewModel()
+    private val fusedLocationProviderClient by lazy{
+        LocationServices.getFusedLocationProviderClient(requireContext())
+    }
+    private val geocoder by lazy{ Geocoder(requireContext())}
+
     private val weatherDataAdapter= WeatherDataAdapter(
         onLocationClicked = {
-            Toast.makeText(requireContext(), "onLocationClicked()", Toast.LENGTH_SHORT).show()
+            showLocationOptions()
         }
     )
+
+    private val locationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+        val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+
+        if (fineLocationGranted || coarseLocationGranted) {
+            getCurrentLocation()
+        } else {
+            Toast.makeText(requireContext(), "Permiso denegado", Toast.LENGTH_SHORT).show()
+        }
+    }
+
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -36,19 +62,90 @@ class HomeFragment : Fragment(){
         super.onViewCreated(view, savedInstanceState)
         setWeatherDataAdapter()
         setWeatherData()
+        setObservers()
+    }
+
+    private fun setObservers(){
+        with(homeViewModel){
+            currentLocation.observe(viewLifecycleOwner){
+                val currentLocationDataState=it ?: return@observe
+                if(currentLocationDataState.isLoading){
+                    showLoading()
+                }
+                currentLocationDataState.currentLocation?.let{currentLocation ->
+                    hideLoading()
+                    setWeatherData(currentLocation)
+                }
+                currentLocationDataState.error?.let{error ->
+                    hideLoading()
+                    Toast.makeText(requireContext(),error, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
     private fun setWeatherDataAdapter(){
         binding.weatherDataRecyclerView.adapter= weatherDataAdapter
     }
 
-    private fun setWeatherData(){
-        weatherDataAdapter.setData(data = listOf(CurrentLocation(date = getCurrentDate())))
+    private fun setWeatherData(currentLocation: CurrentLocation?= null){
+        weatherDataAdapter.setData(data = listOf(currentLocation ?: CurrentLocation()))
     }
 
-    private fun getCurrentDate(): String{
-        val currentDate = Date()
-        val formatter= SimpleDateFormat("d MMMM yyyy", Locale.getDefault())
-        return "Hoy, ${formatter.format(currentDate)}"
+    private fun getCurrentLocation(){
+        homeViewModel.getCurrentLocation(fusedLocationProviderClient,geocoder)
+    }
+
+    private fun isLocationPermissionGranted(): Boolean{
+        return ContextCompat.checkSelfPermission(
+            requireContext(), Manifest.permission.ACCESS_FINE_LOCATION
+        )== PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(
+            requireContext(), Manifest.permission.ACCESS_COARSE_LOCATION
+        )== PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun requestLocationPermission() {
+        locationPermissionLauncher.launch(
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            )
+        )
+    }
+
+
+    private fun proceedWithCurrentLocation(){
+        if(isLocationPermissionGranted()){
+            getCurrentLocation()
+        } else{
+            requestLocationPermission()
+        }
+    }
+
+    private fun showLocationOptions(){
+        val options= arrayOf("Usar ubicación actual", "Busqueda manual")
+        AlertDialog.Builder(requireContext()).apply{
+            setTitle("Escoja un método para obtener la ubicación")
+            setItems(options){_,which->
+                when(which){
+                    0-> proceedWithCurrentLocation()
+                }
+            }
+            show()
+        }
+    }
+
+    private fun showLoading(){
+        with(binding){
+            weatherDataRecyclerView.visibility= View.GONE
+            swipeRefreshLayout.isRefreshing=true
+        }
+    }
+
+    private fun hideLoading(){
+        with(binding){
+            weatherDataRecyclerView.visibility= View.VISIBLE
+            swipeRefreshLayout.isRefreshing=false
+        }
     }
 }
