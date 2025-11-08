@@ -2,7 +2,10 @@ package com.example.weatherapp.utils
 
 import android.app.Application
 import com.example.weatherapp.dependency_injection.repositoryModule
+import com.example.weatherapp.dependency_injection.serializerModule
+import com.example.weatherapp.dependency_injection.storageModule
 import com.example.weatherapp.dependency_injection.viewModelModule
+import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.GlobalContext.startKoin
 
 class AppConfig : Application() {
@@ -10,7 +13,15 @@ class AppConfig : Application() {
     override fun onCreate(){
         super.onCreate()
         startKoin{
-            modules(listOf(repositoryModule, viewModelModule))
+            androidContext(this@AppConfig)
+            modules(
+                listOf(
+                    repositoryModule,
+                    viewModelModule,
+                    serializerModule,
+                    storageModule
+                )
+            )
         }
     }
 }
