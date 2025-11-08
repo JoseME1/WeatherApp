@@ -15,13 +15,25 @@ import com.example.weatherapp.databinding.FragmentHomeBinding
 import android.Manifest
 import android.app.AlertDialog
 import android.location.Geocoder
+import androidx.fragment.app.clearFragmentResultListener
+import androidx.fragment.app.setFragmentResultListener
+import androidx.navigation.fragment.findNavController
 import com.example.weatherapp.storage.SharedPreferencesManager
 import com.google.android.gms.location.LocationServices
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import kotlin.text.get
+import com.example.weatherapp.R
 
 class HomeFragment : Fragment(){
+
+    companion object{
+        const val REQUEST_KEY_MANUAL_LOCATION_SEARCH= "manualLocationSearch"
+        const val KEY_LOCATION_TEXT= "locationText"
+        const val KEY_LATITUDE= "latitude"
+        const val KEY_LONGITUDE= "longitude"
+    }
+
     private var _binding: FragmentHomeBinding? = null
     private val binding get()= requireNotNull(_binding)
 
@@ -72,7 +84,7 @@ class HomeFragment : Fragment(){
     private fun setObservers(){
         with(homeViewModel){
             currentLocation.observe(viewLifecycleOwner){
-                val currentLocationDataState=it ?: return@observe
+                val currentLocationDataState=it.getContentIfNotHandled() ?: return@observe
                 if(currentLocationDataState.isLoading){
                     showLoading()
                 }
@@ -134,6 +146,7 @@ class HomeFragment : Fragment(){
             setItems(options){_,which->
                 when(which){
                     0-> proceedWithCurrentLocation()
+                    1-> startManualLocationSearch()
                 }
             }
             show()
@@ -152,5 +165,27 @@ class HomeFragment : Fragment(){
             weatherDataRecyclerView.visibility= View.VISIBLE
             swipeRefreshLayout.isRefreshing=false
         }
+    }
+
+    private fun startManualLocationSearch(){
+        startListeningManualLocationSelection()
+        findNavController().navigate(R.id.action_home_fragment_to_location_fragment)
+    }
+
+    private fun startListeningManualLocationSelection(){
+        setFragmentResultListener(REQUEST_KEY_MANUAL_LOCATION_SEARCH){_, bundle ->
+            stopListeningManualLocationSelection()
+            val currentLocation = CurrentLocation(
+                location = bundle.getString(KEY_LOCATION_TEXT) ?: "N/A",
+                latitude = bundle.getDouble(KEY_LATITUDE),
+                longitude = bundle.getDouble(KEY_LONGITUDE)
+            )
+            sharedPreferencesManager.saveCurrentLocation(currentLocation)
+            setWeatherData(currentLocation)
+        }
+    }
+
+    private fun stopListeningManualLocationSelection(){
+        clearFragmentResultListener(REQUEST_KEY_MANUAL_LOCATION_SEARCH)
     }
 }
